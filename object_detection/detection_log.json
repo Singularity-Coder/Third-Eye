@@ -1,0 +1,28 @@
+[
+  {
+    "timestamp": "2025-06-16T01:16:27.822342",
+    "frame": 0,
+    "mode": "all",
+    "detections": [
+      {
+        "type": "unknown_motion",
+        "area": 919601.0,
+        "aspect_ratio": 1.7777777777777777,
+        "bbox": [
+          0,
+          0,
+          1280,
+          720
+        ]
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-06-16T01:16:28.136367",
+    "frame": 1,
+    "mode": "all",
+    "detections": [
+      {
+        "type": "frontal_face",
+        "bbox": [
+          

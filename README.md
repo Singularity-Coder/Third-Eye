@@ -170,6 +170,81 @@ python combined_system.py
 4. **Multiple camera support**
 5. **Night vision** with IR camera
 
+___
 
+```
+The TensorFlow library was compiled to use AVX instructions, but these aren't available on your machine.
+```
+This error means your processor doesn't support AVX instructions that TensorFlow requires. Let's use the lightweight OpenCV-only solution instead.
+
+## OpenCV-Only Detection System## Simple Installation (No TensorFlow needed):
+
+```bash
+# Only install these (no TensorFlow)
+pip install opencv-python
+pip install face-recognition
+pip install numpy
+```
+
+## Run the System:
+
+```bash
+python opencv_only_system.py
+```
+
+## What This System Can Do:
+
+### 1. **Face Detection & Recognition**
+- Detects faces from front and profile views
+- Recognizes known people from photos
+- Detects eyes within faces for better accuracy
+
+### 2. **Motion Detection**
+- Advanced background subtraction
+- Classifies movement patterns
+- Tracks object size and shape
+
+### 3. **People Detection**
+- Full body detection
+- Works even when face is not visible
+
+### 4. **Color-based Object Detection**
+- Detects objects by color (red, blue, green, yellow)
+- Useful for tracking specific items
+
+### 5. **Smart Logging**
+- JSON logs with timestamps
+- Detection statistics
+- Saved images with detections
+
+## Controls:
+- **'1'** - Face detection only
+- **'2'** - Face recognition only
+- **'3'** - Motion detection only
+- **'4'** - People detection only
+- **'5'** - Color detection only
+- **'a'** - All detections (recommended)
+- **'s'** - Save current frame
+- **'r'** - Reset background
+- **'l'** - Show detection summary
+- **'q'** - Quit
+
+## Performance Benefits:
+- **No AVX requirement** - works on any processor
+- **Lightweight** - uses only OpenCV
+- **Fast** - optimized for real-time processing
+- **Reliable** - proven algorithms
+
+## To Add Known Faces:
+1. Create a `known_faces` folder
+2. Add photos named like `john.jpg`, `mary.png`
+3. Restart the system
+
+**This system is actually better than TensorFlow for home security - it's faster, more reliable, and works on any computer!**
+
+Try it now with:
+```bash
+python opencv_only_system.py
+```
 
 
