@@ -1,0 +1,5 @@
+{
+  "name": "World Modeling Engine 102",
+  "description": "An operational world modeling tool that transforms raw data into a unified ontology of entities, events, relationships, and observations using a node-based architecture.",
+  "requestFramePermissions": []
+}
