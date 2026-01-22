@@ -21,6 +21,25 @@ export interface PivotEvent {
   is_active: boolean;
 }
 
+export type ToolCategory = 'OBSERVER' | 'PLAYER';
+
+export interface ToolDefinition {
+  id: string;
+  name: string;
+  description: string;
+  parameters: string; // JSON schema string
+  category: ToolCategory;
+}
+
+export interface ToolCall {
+  tool_id: string;
+  args: Record<string, any>;
+  timestamp: string;
+  status: 'PENDING' | 'EXECUTING' | 'SUCCESS' | 'FAILED';
+  result?: string;
+  impact_score?: number;
+}
+
 export interface Entity {
   entity_id: string;
   entity_type: string;

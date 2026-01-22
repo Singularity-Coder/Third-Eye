@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { WorldModel } from '../types';
-import { Clock, Activity, ChevronRight, Map as MapIcon, Satellite, Plane, Bird, User, Atom, Target, GitBranch } from 'lucide-react';
+import { Clock, Activity, ChevronRight, Map as MapIcon, Satellite, Plane, Bird, User, Atom, Target, GitBranch, Plus, Minus } from 'lucide-react';
 
 interface TimeMachineProps {
   model: WorldModel;
@@ -352,23 +352,41 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
              </div>
           </div>
 
-          <div className="relative h-10 md:h-12 flex items-center">
-            {/* Visual Tick Marks */}
-            <div className="absolute inset-0 flex justify-between px-1 items-center pointer-events-none opacity-20">
-              {Array.from({length: 60}).map((_, i) => (
-                <div key={i} className={`w-px ${i % 5 === 0 ? 'h-5 bg-white' : 'h-2 bg-slate-600'}`} />
-              ))}
+          <div className="relative h-10 md:h-12 flex items-center gap-2">
+            <button 
+              onClick={() => onSliderChange(Math.max(timeRange.min, currentTime - 1))}
+              className="z-20 h-full px-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center border border-slate-700/50 bg-slate-900/50 shadow-inner"
+              title="Step Backward (1 Year)"
+            >
+              <Minus size={14} strokeWidth={3} />
+            </button>
+            
+            <div className="flex-1 relative h-full flex items-center">
+              {/* Visual Tick Marks */}
+              <div className="absolute inset-0 flex justify-between px-1 items-center pointer-events-none opacity-20">
+                {Array.from({length: 60}).map((_, i) => (
+                  <div key={i} className={`w-px ${i % 5 === 0 ? 'h-5 bg-white' : 'h-2 bg-slate-600'}`} />
+                ))}
+              </div>
+
+              <input
+                type="range"
+                min={timeRange.min}
+                max={timeRange.max}
+                step={(timeRange.max - timeRange.min) / 30000}
+                value={currentTime}
+                onChange={(e) => onSliderChange(parseFloat(e.target.value))}
+                className="w-full h-2 md:h-3 bg-slate-800/50 border border-slate-700/50 rounded-none appearance-none cursor-pointer focus:outline-none tactical-scrub-input relative z-10"
+              />
             </div>
 
-            <input
-              type="range"
-              min={timeRange.min}
-              max={timeRange.max}
-              step={(timeRange.max - timeRange.min) / 30000}
-              value={currentTime}
-              onChange={(e) => onSliderChange(parseFloat(e.target.value))}
-              className="w-full h-2 md:h-3 bg-slate-800/50 border border-slate-700/50 rounded-none appearance-none cursor-pointer focus:outline-none tactical-scrub-input relative z-10"
-            />
+            <button 
+              onClick={() => onSliderChange(Math.min(timeRange.max, currentTime + 1))}
+              className="z-20 h-full px-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center border border-slate-700/50 bg-slate-900/50 shadow-inner"
+              title="Step Forward (1 Year)"
+            >
+              <Plus size={14} strokeWidth={3} />
+            </button>
           </div>
         </div>
       </div>
