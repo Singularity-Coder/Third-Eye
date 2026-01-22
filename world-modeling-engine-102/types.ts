@@ -10,8 +10,15 @@ export enum ObjectType {
 export interface Geometry {
   type: 'Point' | 'Polygon';
   coordinates: number[] | number[][]; // [lon, lat] or [[lon, lat], ...]
-  // For continental drift, we might have velocity or keyframe paths
   velocity?: { x: number, y: number };
+}
+
+export interface PivotEvent {
+  id: string;
+  label: string;
+  description: string;
+  expected_impact: string;
+  is_active: boolean;
 }
 
 export interface Entity {
@@ -19,15 +26,15 @@ export interface Entity {
   entity_type: string;
   names: string[];
   attributes: Record<string, string | number | boolean>;
-  valid_time?: string; // ISO string or simple year for historical data
+  valid_time?: string;
   location?: Geometry;
   source_refs: string[];
+  branch_id?: string; // Links entity to a specific temporal branch
 }
 
 export interface WorldEvent {
   event_id: string;
   event_type: string;
-  // Changed: Made start optional to allow instant-only events as seen in INITIAL_MODEL
   time_interval: { start?: string; end?: string; instant?: string };
   location_ref?: string;
   location?: Geometry;
@@ -36,6 +43,7 @@ export interface WorldEvent {
   outputs?: string[];
   effects?: string[];
   source_refs: string[];
+  branch_id?: string;
 }
 
 export interface Relationship {

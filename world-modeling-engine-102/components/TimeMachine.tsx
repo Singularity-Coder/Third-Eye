@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { WorldModel } from '../types';
-import { Clock, Activity, ChevronRight, Map as MapIcon, Satellite, Plane, Bird, User, Atom } from 'lucide-react';
+import { Clock, Activity, ChevronRight, Map as MapIcon, Satellite, Plane, Bird, User, Atom, Target, GitBranch } from 'lucide-react';
 
 interface TimeMachineProps {
   model: WorldModel;
@@ -26,13 +26,11 @@ const parseYear = (timeStr: string | undefined): number => {
   else if (clean.includes('MA')) multiplier = 1000000;
   else if (clean.endsWith('M')) multiplier = 1000000;
 
-  // Extract numeric part while keeping sign
   const numericPart = clean.replace(/[GMA]|BCE|BC|AD/g, '');
   let val = parseFloat(numericPart);
   
   if (isNaN(val)) return 0;
 
-  // If input string has BCE or BC, it's explicitly negative
   if (clean.includes('BCE') || clean.includes('BC')) {
       val = -Math.abs(val);
   }
@@ -59,6 +57,7 @@ const formatYearLong = (year: number): string => {
 
 export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState<number>(2024);
   const [inputYear, setInputYear] = useState<string>('2024 AD');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('SPACE_STATION');
@@ -106,27 +105,12 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
     // Grid
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 1;
-    const gridSize = 50 * scale;
+    const gridSize = Math.max(10, 50 * scale);
     for (let x = centerX % gridSize; x < canvas.width; x += gridSize) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
     for (let y = centerY % gridSize; y < canvas.height; y += gridSize) {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-    }
-
-    // Planetary Glow
-    if (currentTime < -4000000000) {
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.beginPath();
-        ctx.arc(0, 0, 350 * scale, 0, Math.PI * 2);
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 350 * scale);
-        grad.addColorStop(0, 'rgba(69, 10, 10, 0.4)');
-        grad.addColorStop(0.5, 'rgba(127, 29, 29, 0.2)');
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.restore();
     }
 
     // Render Entities
@@ -146,6 +130,8 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
       ctx.translate(centerX, centerY);
       ctx.scale(scale, scale);
 
+      const isBranched = !!entity.branch_id;
+
       if (entity.location?.type === 'Polygon') {
         ctx.beginPath();
         const coords = entity.location.coordinates as number[][];
@@ -156,17 +142,29 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
           else ctx.lineTo(px, py);
         });
         ctx.closePath();
-        ctx.fillStyle = currentTime < -500000000 ? '#78350f' : currentTime > 1000000000 ? '#1e1b4b' : '#064e3b';
+        
+        if (isBranched) {
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+          ctx.strokeStyle = '#fb7185';
+          ctx.lineWidth = 2 / scale;
+        } else {
+          ctx.fillStyle = currentTime < -500000000 ? '#78350f' : currentTime > 1000000000 ? '#1e1b4b' : '#064e3b';
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1 / scale;
+        }
+        
         ctx.fill();
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1 / scale;
         ctx.stroke();
       } else if (entity.location?.type === 'Point') {
         const [x, y] = entity.location.coordinates as number[];
         ctx.beginPath();
         ctx.arc(x + xDrift, y + yDrift, 5 / scale, 0, Math.PI * 2);
-        ctx.fillStyle = '#3b82f6';
+        ctx.fillStyle = isBranched ? '#f43f5e' : '#3b82f6';
         ctx.fill();
+        if (isBranched) {
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#f43f5e';
+        }
       }
       ctx.restore();
     });
@@ -187,22 +185,25 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
       ctx.scale(scale, scale);
       const pulse = (Date.now() % 1000) / 1000;
       const opacity = Math.max(0, 1 - (timeDiff / window));
+      const isBranched = !!ev.branch_id;
 
       ctx.beginPath();
       ctx.arc(ex, ey, (10 + pulse * 15) / scale, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(244, 63, 94, ${opacity * (1 - pulse)})`;
-      ctx.lineWidth = 2 / scale;
+      ctx.strokeStyle = isBranched ? `rgba(251, 113, 133, ${opacity * (1 - pulse)})` : `rgba(244, 63, 94, ${opacity * (1 - pulse)})`;
+      ctx.lineWidth = 3 / scale;
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(ex, ey, 4 / scale, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(244, 63, 94, ${opacity})`;
+      ctx.arc(ex, ey, 5 / scale, 0, Math.PI * 2);
+      ctx.fillStyle = isBranched ? `rgba(251, 113, 133, ${opacity})` : `rgba(244, 63, 94, ${opacity})`;
       ctx.fill();
       
       if (scale > 5) {
-        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'black';
+        ctx.fillStyle = isBranched ? '#fda4af' : '#fff';
         ctx.font = `bold ${10/scale}px font-mono`;
-        ctx.fillText(ev.event_type.toUpperCase(), ex + 12/scale, ey);
+        ctx.fillText(ev.event_type.toUpperCase() + (isBranched ? " [SIM]" : ""), ex + 12/scale, ey);
       }
       ctx.restore();
     });
@@ -210,9 +211,9 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
 
   useEffect(() => {
     const handleResize = () => {
-      if (canvasRef.current && canvasRef.current.parentElement) {
-        canvasRef.current.width = canvasRef.current.parentElement.clientWidth;
-        canvasRef.current.height = canvasRef.current.parentElement.clientHeight;
+      if (canvasRef.current && containerRef.current) {
+        canvasRef.current.width = containerRef.current.clientWidth;
+        canvasRef.current.height = containerRef.current.clientHeight;
       }
     };
     handleResize();
@@ -231,42 +232,43 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
   }, [currentTime, zoomLevel, viewOffset, model]);
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-slate-950 overflow-hidden font-mono">
+    <div className="relative w-full h-full flex flex-col bg-slate-950 overflow-hidden font-mono select-none">
       {/* HUD Overlay */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-10 pointer-events-none">
-        <div className="bg-slate-900 border border-slate-700 p-6 rounded-none shadow-2xl pointer-events-auto min-w-[340px] border-l-4 border-l-blue-600">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-2 bg-blue-500/10 border border-blue-500/30">
-              <Clock className="text-blue-400" size={24} />
+      <div className="absolute top-2 left-2 right-2 md:top-4 md:left-4 md:right-4 flex flex-col sm:flex-row justify-between items-start gap-2 z-10 pointer-events-none">
+        <div className="bg-slate-900/95 backdrop-blur border border-slate-700 p-3 md:p-6 rounded-none shadow-2xl pointer-events-auto min-w-0 w-full sm:w-[340px] border-l-4 border-l-blue-600">
+          <div className="flex items-center gap-3 md:gap-4 mb-2 md:mb-4">
+            <div className="p-1.5 md:p-2 bg-blue-500/10 border border-blue-500/30 shrink-0">
+              <Clock className="text-blue-400 w-[18px] h-[18px] md:w-6 md:h-6" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <form onSubmit={handleManualInput} className="relative group">
                 <input
                   type="text"
                   value={inputYear}
                   onChange={(e) => setInputYear(e.target.value)}
                   onBlur={handleManualInput}
-                  className="bg-transparent text-2xl font-black tracking-tighter text-white border-b border-slate-700 focus:border-blue-500 focus:outline-none w-full transition-all rounded-none uppercase"
-                  placeholder="TEMPORAL_MARK"
+                  className="bg-transparent text-lg md:text-2xl font-black tracking-tighter text-white border-b border-slate-700 focus:border-blue-500 focus:outline-none w-full transition-all rounded-none uppercase"
+                  placeholder="TIME"
                 />
                 <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-blue-400">
-                  <ChevronRight size={20} />
+                  <ChevronRight size={18} />
                 </button>
               </form>
-              <div className="text-[9px] text-slate-500 tracking-[0.2em] uppercase flex items-center gap-2 mt-2">
-                <div className="w-1.5 h-1.5 bg-blue-500 shadow-[0_0_8px_#3b82f6]" />
+              <div className="text-[8px] md:text-[9px] text-slate-500 tracking-[0.1em] md:tracking-[0.2em] uppercase flex items-center gap-2 mt-1 md:mt-2 truncate">
+                <div className="w-1 md:w-1.5 h-1 md:h-1.5 bg-blue-500 shadow-[0_0_8px_#3b82f6] shrink-0" />
                 {formatYearLong(currentTime)}
               </div>
             </div>
           </div>
-          <div className="h-px bg-slate-800 w-full mb-3" />
-          <div className="text-[8px] text-slate-600 uppercase flex justify-between">
-            <span>CHRONO_LOCK_STATE</span>
-            <span className="text-emerald-500 font-bold">SYNCHRONIZED</span>
+          <div className="h-px bg-slate-800 w-full mb-2 md:mb-3" />
+          <div className="text-[7px] md:text-[8px] text-slate-600 uppercase flex justify-between">
+            <span>TEMPORAL_LOCK</span>
+            <span className="text-emerald-500 font-bold">STABLE</span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 pointer-events-auto">
+        {/* Zoom Controls */}
+        <div className="flex flex-row sm:flex-col gap-1 pointer-events-auto overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 w-full sm:w-auto">
           {(Object.keys(ZOOM_CONFIG) as ZoomLevel[]).map((key) => {
             const Config = ZOOM_CONFIG[key];
             const Icon = Config.icon;
@@ -274,14 +276,14 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
               <button
                 key={key}
                 onClick={() => setZoomLevel(key)}
-                className={`p-3 border transition-all shadow-xl group relative rounded-none ${
+                className={`p-2.5 md:p-3 border transition-all shadow-xl group relative rounded-none shrink-0 ${
                   zoomLevel === key 
                     ? 'bg-blue-600 border-blue-400 text-white' 
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-600'
+                    : 'bg-slate-900/90 backdrop-blur border-slate-800 text-slate-400 hover:text-white hover:border-slate-600'
                 }`}
               >
-                <Icon size={18} />
-                <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-800 border border-slate-700 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-all uppercase">
+                <Icon size={16} />
+                <span className="hidden md:block absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-800 border border-slate-700 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-all uppercase">
                   {Config.label}
                 </span>
               </button>
@@ -290,8 +292,8 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
         </div>
       </div>
 
-      {/* Canvas */}
-      <div className="flex-1 relative">
+      {/* Canvas Viewport */}
+      <div className="flex-1 relative min-h-0" ref={containerRef}>
         <canvas
           ref={canvasRef}
           onMouseDown={(e) => { setIsDragging(true); setDragStart({ x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y }); }}
@@ -300,90 +302,129 @@ export const TimeMachine: React.FC<TimeMachineProps> = ({ model }) => {
           onMouseLeave={() => setIsDragging(false)}
           className="w-full h-full cursor-grab active:cursor-grabbing"
         />
+        
+        {/* Mobile Drag Indicator */}
+        <div className="absolute bottom-4 left-4 p-2 bg-slate-900/50 border border-slate-700 md:hidden pointer-events-none">
+          <Target size={14} className="text-slate-500" />
+        </div>
       </div>
 
-      {/* Tactical Bottom Control Bar with SLIDER */}
-      <div className="bg-slate-900 border-t border-slate-800 z-20 flex flex-col shrink-0 pb-2">
-        <div className="flex justify-between items-center py-2 px-6 border-b border-slate-800/50 bg-slate-950/40">
+      {/* Persistent Bottom Control Interface */}
+      <div className="bg-slate-900 border-t border-slate-800 z-20 flex flex-col shrink-0 min-h-[120px] md:min-h-[140px]">
+        {/* Status Bar */}
+        <div className="hidden sm:flex justify-between items-center py-2 px-6 border-b border-slate-800/50 bg-slate-950/40">
            <div className="flex items-center gap-10">
              <div className="flex items-center gap-3 text-[9px] text-slate-400 uppercase tracking-widest">
                <Activity size={14} className="text-emerald-500" />
-               SYSTEM_STATE: <span className="text-emerald-400 font-bold">STABLE</span>
+               SYSTEM_STATE: <span className="text-emerald-400 font-bold">NOMINAL</span>
              </div>
              <div className="flex items-center gap-3 text-[9px] text-slate-400 uppercase tracking-widest">
                <MapIcon size={14} className="text-blue-500" />
-               MAP_ENTITIES: <span className="text-blue-400 font-bold">{model.entities.length}</span>
-             </div>
-             <div className="flex items-center gap-3 text-[9px] text-slate-400 uppercase tracking-widest">
-               <Atom size={14} className="text-rose-500" />
-               PROJECTION: <span className="text-rose-400 font-bold">ENABLED</span>
+               RENDERED_ONTOLOGY: <span className="text-blue-400 font-bold">{model.entities.length + model.events.length}</span>
              </div>
            </div>
-           <div className="text-[9px] font-bold text-slate-600 tracking-[0.4em] uppercase">
-             CHRONOS_TIMELINE_INTERFACE_V4.2
+           <div className="text-[9px] font-bold text-slate-700 tracking-[0.4em] uppercase">
+             CHRONOS_TIMELINE_SCRUBBER_V4.2
            </div>
         </div>
         
-        {/* Timeline Slider Section */}
-        <div className="relative h-20 flex flex-col justify-center px-10 bg-slate-950">
-          <div className="flex justify-between mb-2 pointer-events-none">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">
-              ORIGIN_LIMIT: {formatYearShort(timeRange.min)}
-            </span>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">
-              HORIZON_LIMIT: {formatYearShort(timeRange.max)}
-            </span>
+        {/* Scrubbing Interface */}
+        <div className="flex-1 relative flex flex-col justify-center px-4 md:px-10 bg-slate-950/80">
+          <div className="flex justify-between items-end mb-1 md:mb-2 pointer-events-none">
+             <div className="flex flex-col">
+               <span className="text-[7px] md:text-[9px] text-slate-600 font-black uppercase">TEMPORAL_MIN</span>
+               <span className="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-tighter">
+                 {formatYearShort(timeRange.min)}
+               </span>
+             </div>
+             
+             <div className="bg-blue-600/10 px-4 py-1 border border-blue-600/30 mb-1">
+               <span className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-widest animate-pulse">
+                 {formatYearShort(currentTime)}
+               </span>
+             </div>
+
+             <div className="flex flex-col items-end">
+               <span className="text-[7px] md:text-[9px] text-slate-600 font-black uppercase">TEMPORAL_MAX</span>
+               <span className="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-tighter">
+                 {formatYearShort(timeRange.max)}
+               </span>
+             </div>
           </div>
 
-          <div className="relative h-8 flex items-center">
+          <div className="relative h-10 md:h-12 flex items-center">
+            {/* Visual Tick Marks */}
+            <div className="absolute inset-0 flex justify-between px-1 items-center pointer-events-none opacity-20">
+              {Array.from({length: 60}).map((_, i) => (
+                <div key={i} className={`w-px ${i % 5 === 0 ? 'h-5 bg-white' : 'h-2 bg-slate-600'}`} />
+              ))}
+            </div>
+
             <input
               type="range"
               min={timeRange.min}
               max={timeRange.max}
-              step={(timeRange.max - timeRange.min) / 10000}
+              step={(timeRange.max - timeRange.min) / 30000}
               value={currentTime}
               onChange={(e) => onSliderChange(parseFloat(e.target.value))}
-              className="w-full h-2 bg-slate-800 rounded-none appearance-none cursor-pointer focus:outline-none tactical-range-input"
+              className="w-full h-2 md:h-3 bg-slate-800/50 border border-slate-700/50 rounded-none appearance-none cursor-pointer focus:outline-none tactical-scrub-input relative z-10"
             />
           </div>
         </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .tactical-range-input {
+        .tactical-scrub-input {
           -webkit-appearance: none;
+          background: #0f172a;
         }
-        .tactical-range-input::-webkit-slider-runnable-track {
+        .tactical-scrub-input::-webkit-slider-runnable-track {
           width: 100%;
-          height: 8px;
+          height: 10px;
           background: #1e293b;
           border: 1px solid #334155;
         }
-        .tactical-range-input::-webkit-slider-thumb {
+        .tactical-scrub-input::-webkit-slider-thumb {
           -webkit-appearance: none;
-          height: 32px;
-          width: 12px;
+          height: 48px;
+          width: 18px;
           background: #3b82f6;
-          margin-top: -12px;
-          box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
-          border: 1px solid white;
-          border-radius: 0;
+          margin-top: -20px;
+          box-shadow: 0 0 25px rgba(59, 130, 246, 0.9), inset 0 0 8px white;
+          border: 2px solid white;
+          cursor: pointer;
         }
-        .tactical-range-input::-moz-range-track {
+        .tactical-scrub-input::-moz-range-track {
           width: 100%;
-          height: 8px;
+          height: 10px;
           background: #1e293b;
           border: 1px solid #334155;
         }
-        .tactical-range-input::-moz-range-thumb {
-          height: 32px;
-          width: 12px;
+        .tactical-scrub-input::-moz-range-thumb {
+          height: 48px;
+          width: 18px;
           background: #3b82f6;
-          box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
-          border: 1px solid white;
+          box-shadow: 0 0 25px rgba(59, 130, 246, 0.9);
+          border: 2px solid white;
+          cursor: pointer;
           border-radius: 0;
+        }
+        @media (max-width: 640px) {
+          .tactical-scrub-input::-webkit-slider-thumb {
+            width: 32px;
+            height: 56px;
+            margin-top: -24px;
+          }
+          .tactical-scrub-input::-moz-range-thumb {
+            width: 32px;
+            height: 56px;
+          }
         }
       `}} />
+
+      {zoomLevel === 'MOLECULAR' && (
+        <div className="absolute inset-0 pointer-events-none border-[10px] md:border-[100px] border-blue-600/5 mix-blend-screen animate-pulse" />
+      )}
     </div>
   );
 };
