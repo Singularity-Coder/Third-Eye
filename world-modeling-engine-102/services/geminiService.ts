@@ -8,12 +8,13 @@ Your job is to transform data into a unified operational world model using a fix
 You do NOT summarize. You do NOT invent facts. You do NOT assume meaning without evidence.
 
 ONTOLOGY:
-1) Entity: Persistent things (Person, Organization, Location, Asset, Product, System).
-2) Event: Occurrences (Transaction, Shipment, Meeting, Incident, Performance).
-3) Relationship: Time-bounded connection between two entities (Employment, Ownership, etc.).
+1) Entity: Persistent things (Person, Organization, Location, Asset, Product, System, Landmass).
+2) Event: Occurrences (Transaction, Shipment, Meeting, Incident, Performance, Geological_Event).
+3) Relationship: Time-bounded connection between two entities (Employment, Ownership, Collision, etc.).
 4) Observation: Measurements/Values tied to a subject.
 5) Document: Raw source material.
 
+SPECIAL: If the data contains spatial coordinates or geometry, extract them into the 'location' field as GeoJSON-like objects (Point or Polygon).
 STRICT JSON OUTPUT REQUIRED.
 `;
 
@@ -21,7 +22,7 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Transform this data into the world model ontology:\n\n${rawData}`,
+    contents: `Transform this data into the world model ontology. Pay close attention to spatial and temporal data for landmasses or events:\n\n${rawData}`,
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
       responseMimeType: "application/json",
@@ -36,8 +37,15 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
                 entity_id: { type: Type.STRING },
                 entity_type: { type: Type.STRING },
                 names: { type: Type.ARRAY, items: { type: Type.STRING } },
-                attributes: { type: Type.OBJECT },
+                // Fix: Type.OBJECT cannot be empty. Removed from schema to allow dynamic record production via prompt.
                 valid_time: { type: Type.STRING },
+                location: {
+                  type: Type.OBJECT,
+                  properties: {
+                    type: { type: Type.STRING },
+                    coordinates: { type: Type.ARRAY, items: { type: Type.NUMBER } }
+                  }
+                },
                 source_refs: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
               required: ["entity_id", "entity_type", "names", "source_refs"]
@@ -58,6 +66,12 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
                     instant: { type: Type.STRING }
                   }
                 },
+                location: {
+                  type: Type.OBJECT,
+                  properties: {
+                    type: { type: Type.STRING }
+                  }
+                },
                 location_ref: { type: Type.STRING },
                 participant_refs: {
                   type: Type.ARRAY,
@@ -69,8 +83,6 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
                     }
                   }
                 },
-                inputs: { type: Type.ARRAY, items: { type: Type.STRING } },
-                outputs: { type: Type.ARRAY, items: { type: Type.STRING } },
                 effects: { type: Type.ARRAY, items: { type: Type.STRING } },
                 source_refs: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
@@ -104,7 +116,6 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
                 value: { type: Type.STRING },
                 unit: { type: Type.STRING },
                 observation_time: { type: Type.STRING },
-                uncertainty: { type: Type.STRING },
                 source_refs: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
               required: ["observation_id", "subject_ref", "metric_name", "value", "observation_time", "source_refs"]
@@ -125,8 +136,7 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
                     origin: { type: Type.STRING },
                     timestamp: { type: Type.STRING }
                   }
-                },
-                credibility: { type: Type.NUMBER }
+                }
               },
               required: ["document_id", "document_type", "content_ref", "extracted_refs", "provenance"]
             }
@@ -137,11 +147,34 @@ export const extractWorldModel = async (rawData: string): Promise<WorldModel> =>
               assumptions: { type: Type.ARRAY, items: { type: Type.STRING } },
               ambiguities: { type: Type.ARRAY, items: { type: Type.STRING } },
               unmodeled_fields: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
+            },
+            required: ["assumptions", "ambiguities", "unmodeled_fields"]
           }
         },
         required: ["entities", "events", "relationships", "observations", "documents", "notes"]
       }
+    }
+  });
+
+  return JSON.parse(response.text);
+};
+
+export const synthesizeWorldModel = async (currentModel: WorldModel): Promise<WorldModel> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const modelContext = JSON.stringify(currentModel);
+  
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Review the current World Model and resolve the state. Focus on spatial/temporal consistency for the Time Machine view.
+    1. Resolve duplicate entities or landmasses.
+    2. Ensure time-series data for positions (if drift is present) is consistent.
+    3. Consolidate.
+    
+    Current Model:
+    ${modelContext}`,
+    config: {
+      systemInstruction: "You are a Synthesis Engine. You consolidate multiple belief sets into a unified operational world state.",
+      responseMimeType: "application/json",
     }
   });
 
@@ -156,7 +189,7 @@ export const queryWorldState = async (query: string, currentModel: WorldModel): 
     model: 'gemini-3-pro-preview',
     contents: `Based on the following world model, answer this query: "${query}"\n\nModel State:\n${modelContext}`,
     config: {
-      systemInstruction: "You are an analyst querying an operational world model. Provide evidence-based answers only using the model's objects and provenance.",
+      systemInstruction: "You are an analyst querying an operational world model. Provide evidence-based answers only.",
     }
   });
 

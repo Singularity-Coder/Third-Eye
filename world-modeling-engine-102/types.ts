@@ -7,20 +7,30 @@ export enum ObjectType {
   DOCUMENT = 'Document'
 }
 
+export interface Geometry {
+  type: 'Point' | 'Polygon';
+  coordinates: number[] | number[][]; // [lon, lat] or [[lon, lat], ...]
+  // For continental drift, we might have velocity or keyframe paths
+  velocity?: { x: number, y: number };
+}
+
 export interface Entity {
   entity_id: string;
   entity_type: string;
   names: string[];
   attributes: Record<string, string | number | boolean>;
-  valid_time?: string;
+  valid_time?: string; // ISO string or simple year for historical data
+  location?: Geometry;
   source_refs: string[];
 }
 
 export interface WorldEvent {
   event_id: string;
   event_type: string;
-  time_interval: { start: string; end?: string; instant?: string };
+  // Changed: Made start optional to allow instant-only events as seen in INITIAL_MODEL
+  time_interval: { start?: string; end?: string; instant?: string };
   location_ref?: string;
+  location?: Geometry;
   participant_refs: { entity_id: string; role: string }[];
   inputs?: string[];
   outputs?: string[];
